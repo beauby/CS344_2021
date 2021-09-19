@@ -33,6 +33,8 @@
 
 #include "utils.h"
 
+const size_t blockWidth = 32;
+
 __global__ void rgba_to_greyscale(const uchar4 *const rgbaImage,
                                   unsigned char *const greyImage, int numRows,
                                   int numCols) {
@@ -48,6 +50,17 @@ __global__ void rgba_to_greyscale(const uchar4 *const rgbaImage,
   // First create a mapping from the 2D block and grid locations
   // to an absolute 2D location in the image, then use that to
   // calculate a 1D offset
+  int row_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int col_idx = blockIdx.y * blockDim.y + threadIdx.y;
+
+  if (row_idx >= numRows || col_idx >= numCols) {
+      return;
+  }
+
+  int idx = row_idx * numCols + col_idx;
+  uchar4 rgba = rgbaImage[idx];
+  float channelSum = .299f * rgba.x + .587f * rgba.y + .114f * rgba.z;
+  greyImage[idx] = channelSum;
 }
 
 void your_rgba_to_greyscale(const uchar4 *const h_rgbaImage,
@@ -56,8 +69,10 @@ void your_rgba_to_greyscale(const uchar4 *const h_rgbaImage,
                             size_t numCols) {
   // You must fill in the correct sizes for the blockSize and gridSize
   // currently only one block with one thread is being launched
-  const dim3 blockSize(1, 1, 1); // TODO
-  const dim3 gridSize(1, 1, 1);  // TODO
+  const dim3 blockSize(blockWidth, blockWidth, 1); // TODO
+  int numBlocksX = (numRows + blockWidth - 1) / blockWidth;
+  int numBlocksY = (numCols + blockWidth - 1) / blockWidth;
+  const dim3 gridSize(numBlocksX, numBlocksY, 1);  // TODO
   rgba_to_greyscale<<<gridSize, blockSize>>>(d_rgbaImage, d_greyImage, numRows,
                                              numCols);
 
